@@ -67,13 +67,6 @@ const SingleTabNavigator = createBottomTabNavigator({
 
 const AppNavigator = createStackNavigator(
     {
-        Login: {
-            screen: LoginScreen,
-            navigationOptions: () => ({
-                headerShown: false,
-                gestureEnabled: false,
-            }),
-        },
         TabNavigator: {
             screen: SingleTabNavigator,
             navigationOptions:() => ({
@@ -81,6 +74,14 @@ const AppNavigator = createStackNavigator(
                 gestureEnabled: false
             })
         },
+        Login: {
+            screen: LoginScreen,
+            navigationOptions: () => ({
+                headerShown: false,
+                gestureEnabled: false,
+            }),
+        },
+        
         // SignUp: {
         //     screen: CustomerSignUpScreen,
         //     navigationOptions: () => ({
