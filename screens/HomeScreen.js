@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableHighlight, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, BackHandler, ColorPropType } from 'react-native';
+import { View, Linking, Text, TouchableHighlight, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, BackHandler, ColorPropType } from 'react-native';
 import axios from 'axios';
+import RNSmtpMailer from "react-native-smtp-mailer";
 
-
+// Wed Apr 28 2021 21:35:00 GMT-0400
+const closeProgram = new Date(1619660100000);
 
 export default class HomeScreen extends React.Component {
 
@@ -12,7 +14,7 @@ export default class HomeScreen extends React.Component {
 
         var clientId = '8686f50f-5929-4189-98fa-bde898bcdfda';
         var clientSecret = 'AgRV5QNOSZjhf5DbZE0Za5E0';
-        var code = '91%3Aa63b1433-74a0-4585-92c9-50d93041ea9b';
+        var code = '91%3Aea0f984c-bd6c-4c16-bb94-568ae29aa15a';
 
         var getAccessToken = await axios.post('https://auth.bullhornstaffing.com/oauth/token?grant_type=authorization_code&code=' + code + '&client_id=' + clientId + '&client_secret=' + clientSecret)
         var datadata = getAccessToken['data']
@@ -44,12 +46,17 @@ export default class HomeScreen extends React.Component {
         console.log('rest token and rest URL: ', loginInfo);
 
         this.updatePlacementExtension(restURL, restToken, refreshToken);
+        //  this.setFilesPrivate(restURL, restToken, refreshToken);
+
+        //  setTimeout(this.updatePlacementExtension(restURL, restToken, refreshToken), 1000)
+
     }
 
     getRefreshToken = async (refreshToken, id1, id2, id3, id4) => {
 
 
         console.log('GENERATING NEW ACCESS TOKEN');
+        console.log('entering with params:  ' + refreshToken)
 
         var clientId = '8686f50f-5929-4189-98fa-bde898bcdfda';
         var clientSecret = 'AgRV5QNOSZjhf5DbZE0Za5E0';
@@ -67,15 +74,19 @@ export default class HomeScreen extends React.Component {
 
     loginRefresh = async (accessToken, refreshToken, id1, id2, id3, id4) => {
 
-        console.log('ENTERING LOGIN API FUNCTION');
-        console.log('PARAMS PASSEDDD   ..> ' + id1, + id2 + id3 + id4)
+        console.log('ENTERING REFRESH LOGIN API FUNCTION');
+        console.log('PARAMS PASSEDDD   ..> ' + accessToken + id1, + id2 + id3 + id4)
 
-        var getData = await axios.post('https://rest.bullhornstaffing.com/rest-services/login?version=*&access_token=' + accessToken)
+        try { var getData = await axios.post('https://rest.bullhornstaffing.com/rest-services/login?version=*&access_token=' + accessToken) }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
+            this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+        }
         var loginInfo = getData['data']
         var restToken = loginInfo.BhRestToken
         var restURL = loginInfo.restUrl
 
-        console.log('rest token and rest URL: ', restToken);
+        console.log('rest token and rest URL: ' + restToken + restURL);
 
         if (id1 != null) {
             this.updatePlacementExtension(restURL, restToken, refreshToken);
@@ -168,119 +179,115 @@ export default class HomeScreen extends React.Component {
 
     // ******************* AUTOMATISME MISE A JOUR A 50% DE CHANCE + AVAIL. DATE CANDIDAT LORSQUE PLACEMENT ALLONGE ******************** //
 
-   // updatePlacementExtension = async (restURL, restToken, refreshToken) => {
-        updatePlacementExtension = async () => {
+    updatePlacementExtension = async (restURL, restToken, refreshToken) => {
+
+        // if (closeProgram > new Date) {
+        //     console.log('CLOSING PROGRAM, SEE YOU TOMORROW ' + new Date)
+        //     return
+        // }
+
         console.log('fct1. parameters passed   >  ' + restURL + ' AccessToken :  ' + restToken + ' refreshToken ' + refreshToken)
 
+        // var restToken = 'c56f2432-02b4-46db-a45b-1bb42e3322b1'
+        // var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
+        // var refreshToken = '91:0567c86d-c6ff-4be4-93e1-229286a34958'
         var id1 = 1
         var id2 = null
         var id3 = null
         var id4 = null
-        var mistake = null
+        var extensionList = []
+        var limitDate = new Date(1619841600000) //05/01/2021 00:00:00
+        var testDate = new Date(1617249600000) //04/01/2021 00:00:00
 
-        var restToken = 'c869b6e1-0b49-4a81-9c19-4c1314001147'
-        var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
-        var refreshToken = '91:a5162846-eb2e-4cc9-b421-21c024258051'
-
+        console.log('STARTING UPDATE NOW >>> ' + new Date)
         console.log('GETTING PLACEMENT EXTENSION CHANGE REQUESTS')
 
-
-        var apiChangeReq = await axios.get(restURL + "query/PlacementChangeRequest?fields=id,dateEnd,placement,dateAdded&where=requestType='Placement Extension'&start=0&count=5&BhRestToken=" + restToken)
-            .catch(function (error) {
-                console.log('THERES AN ERRRRROOORRRRR')
-                console.log(error);
-                mistake = error
-            });
-
-        for (let i = 0; i < apiChangeReq.data.count; i++)
-
-            console.log(' >>> ' + JSON.stringify(apiChangeReq.data.data[i]))
-
-        if (mistake != null) {
+        try {
+            await axios.post(restURL + "query/PlacementChangeRequest?fields=id,dateEnd,placement,dateAdded,requestType&count=30&start=0&BhRestToken=" + restToken, {
+                "where": "requestType IN ('Placement Extension', 'Placement Extension and Rate Change')",
+            })
+                .then(function (response) {
+                    extensionList = response.data
+                })
+        }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
             this.getRefreshToken(refreshToken, id1, id2, id3, id4);
         }
 
         var placement_id = []
         var dates = []
 
-        for (let i = 0; i < apiChangeReq.data.count; i++) {
+        for (let i = 0; i < extensionList.count; i++) {
 
-            placement_id.push(apiChangeReq.data.data[i].placement)
-            dates.push(apiChangeReq.data.data[i].dateEnd)
+            var addedDate = new Date(extensionList.data[i].dateAdded)
+
+            if (addedDate > testDate) {
+                console.log('DATE AJOUTEE: ' + addedDate)
+                placement_id.push(extensionList.data[i].placement)
+                dates.push(extensionList.data[i].dateEnd)
+            }
         }
-
-      //  console.log('readable data:  >>> ' + JSON.stringify(placement_id))
 
         for (let e = 0; e < placement_id.length; e++) {
 
             var placement = placement_id[e].id
-            var getExtValue = await axios.get(restURL + "entity/Placement/" + placement + "?fields=customText29,candidate,dateEnd&BhRestToken=" + restToken)
-                .catch(function (error) {
-                    console.log('THERES AN ERRRRROOORRRRR')
-                    console.log(error);
-                    mistake = error
-                });
-
-            if (mistake != null) {
+            try { var getExtValue = await axios.get(restURL + "entity/Placement/" + placement + "?fields=customText29,candidate,dateEnd&BhRestToken=" + restToken) }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
                 this.getRefreshToken(refreshToken, id1, id2, id3, id4);
             }
             var extValue = JSON.stringify(getExtValue.data.data.customText29)
             var candId = JSON.stringify(getExtValue.data.data.candidate.id)
             var endDate = JSON.stringify(getExtValue.data.data.dateEnd)
 
-            console.log('this placement id  > ' + placement)
-            console.log('candidate id  >  ' + candId)
-            console.log('current extension value  >  ' + extValue)
-            console.log('End date of placement is > ' + endDate)
-
-            await axios.post(restURL + "entity/Candidate/" + candId + "?BhRestToken=" + restToken, {
-                "dateAvailable": dates[e],
-            })
-                .then(function (response) {
-                    console.log('Updating Candidate available date ', response.data);
-                })
-                .catch(function (error) {
-                    console.log('THERES AN ERRRRROOOOOORRRRRRRRRR')
-                    console.log(error);
-                    mistake = error
-                });
-
-            if (mistake != null) {
-                this.getRefreshToken(refreshToken, id1, id2, id3, id4);
-            }
-
-            if (getExtValue.data.data.customText29 === "0% - Confirmed that the Consultant will not be Renewed" || getExtValue.data.data.customText29 === "25% - Unlikely to be Renewed" || !getExtValue.data.data.customText29 || getExtValue.data.data.customText29 === null) {
-
-                console.log('inside if extension value please : > ' + extValue)
-
-                await axios.post(restURL + "entity/Placement/" + placement + "?BhRestToken=" + restToken, {
-                    customText29: '50% - One chance in Two that the Consultant be renewed',
+            try {
+                await axios.post(restURL + "entity/Candidate/" + candId + "?BhRestToken=" + restToken, {
+                    "dateAvailable": dates[e],
                 })
                     .then(function (response) {
-                        console.log('RESPONSEEE ', response.data);
-                        console.log("this candidate's availabilty is updated")
+                        console.log('Updating Candidate available date ', response.data);
                     })
-                    .catch(function (error) {
-                        console.log('THERES AN ERRRRROOOOOORRRRRRRRRR')
-                        console.log(error);
-                        mistake = error
-                    });
-                console.log('Extension possibility is updated for this placement ' + placement_id[e].id)
+            }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
+                this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+            }
+            if (getExtValue.data.data.customText29 === "0% - Confirmed that the Consultant will not be Renewed" || getExtValue.data.data.customText29 === "25% - Unlikely to be Renewed" || !getExtValue.data.data.customText29 || getExtValue.data.data.customText29 === null) {
 
-                if (mistake != null) {
+                console.log('this placement id  > ' + placement)
+                console.log('candidate id  >  ' + candId)
+                console.log('current extension value  >  ' + extValue)
+                console.log('End date of placement is > ' + endDate)
+
+                try {
+                    await axios.post(restURL + "entity/Placement/" + placement + "?BhRestToken=" + restToken, {
+                        customText29: '50% - One chance in Two that the Consultant be renewed',
+                    })
+                        .then(function (response) {
+                            console.log('RESPONSEEE ', response.data);
+                            console.log("this candidate's availabilty is updated")
+                        })
+                }
+                catch (err) {
+                    console.log('API CALL FAILED' + err)
                     this.getRefreshToken(refreshToken, id1, id2, id3, id4);
                 }
+                console.log('Extension possibility is updated for this placement ' + placement_id[e].id)
+
             }
             else {
                 console.log('outside if extension value please : > ' + getExtValue.data.data.customText29)
                 console.log('no update this placement id  > ' + placement)
-            console.log('no update candidate id  >  ' + candId)
-            console.log('no update current extension value  >  ' + extValue)
+                console.log('no update candidate id  >  ' + candId)
+                console.log('no update current extension value  >  ' + extValue)
                 console.log('no update EXTENSION ALREADY AT 50% OR ABOVE')
             }
+
         }
         console.log('Everything has been updated.')
-            this.updateCandidateSalary(restURL, restToken, refreshToken)
+        //  this.updateCandidateSalary(restURL, restToken, refreshToken)
+        // this.setFilesPrivate(restURL, restToken, refreshToken)
     }
 
 
@@ -292,7 +299,6 @@ export default class HomeScreen extends React.Component {
         var id2 = 1
         var id3 = null
         var id4 = null
-        var mistake = null
 
         // var restToken = 'b00a9946-4d54-494d-905d-9ed75aa51ac1'
         // var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
@@ -301,14 +307,10 @@ export default class HomeScreen extends React.Component {
 
         //only updates in Salary, should also make a call for salaries not updated but put in placement
 
-        var getPlacementSalary = await axios.get(restURL + "query/PlacementEditHistoryFieldChange?fields=*&start=10&count=5&where=columnName='salary'&BhRestToken=" + restToken)
-            .catch(function (error) {
-                console.log('THERES AN ERRRRROOORRRR')
-                console.log(error);
-                mistake = error
-            });
-
-        if (mistake != null) {
+        // var getPlacementSalary = await axios.get(restURL + "search/Placement?fields=id,candidate,salary&start=10&count=5&BhRestToken=" + restToken)
+        try { var getPlacementSalary = await axios.get(restURL + "query/PlacementEditHistoryFieldChange?fields=*&start=10&count=5&where=columnName='salary'&BhRestToken=" + restToken) }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
             this.getRefreshToken(refreshToken, id1, id2, id3, id4);
         }
 
@@ -325,14 +327,9 @@ export default class HomeScreen extends React.Component {
 
             var historyId = editHistoryIdList[e]
 
-            var getPlacement = await axios.get(restURL + "entity/PlacementEditHistory/" + historyId + "?fields=*&BhRestToken=" + restToken)
-                .catch(function (error) {
-                    console.log('THERES AN ERRRRROOORRRR')
-                    console.log(error);
-                    mistake = error
-                });
-
-            if (mistake != null) {
+            try { var getPlacement = await axios.get(restURL + "entity/PlacementEditHistory/" + historyId + "?fields=*&BhRestToken=" + restToken) }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
                 this.getRefreshToken(refreshToken, id1, id2, id3, id4);
             }
 
@@ -341,14 +338,9 @@ export default class HomeScreen extends React.Component {
 
                 var placementId = getPlacement.data.data.targetEntity.id
 
-                var getPlacementId = await axios.get(restURL + "entity/Placement/" + placementId + "?fields=salary,candidate&BhRestToken=" + restToken)
-                    .catch(function (error) {
-                        console.log('THERES AN ERRRROOOORRRRR')
-                        console.log(error);
-                        mistake = error
-                    });
-
-                if (mistake != null) {
+                try { var getPlacementId = await axios.get(restURL + "entity/Placement/" + placementId + "?fields=salary,candidate&BhRestToken=" + restToken) }
+                catch (err) {
+                    console.log('API CALL FAILED' + err)
                     this.getRefreshToken(refreshToken, id1, id2, id3, id4);
                 }
 
@@ -358,20 +350,17 @@ export default class HomeScreen extends React.Component {
                 console.log('placement id: ' + placementId + '        placement salary: ' + salaryP)
                 console.log('candidate id: ' + candidateId)
 
-                await axios.post(restURL + "entity/Candidate/" + candidateId + "?BhRestToken=" + restToken, {
-                    salary: salaryP,
-                })
-                    .then(function (response) {
-                        console.log('POSTING SALARY IN CAND. ', response.data);
+                try {
+                    await axios.post(restURL + "entity/Candidate/" + candidateId + "?BhRestToken=" + restToken, {
+                        salary: salaryP,
                     })
-                    .catch(function (error) {
-                        console.log('THERES AN ERRRRROOORRRR')
-                        console.log(error);
-                        mistake = error
-                    });
-
-                if (mistake != null) {
-                    this.getRefreshToken(refreshToken, id1, id2, id3, id4)
+                        .then(function (response) {
+                            console.log('POSTING SALARY IN CAND. ', response.data);
+                        })
+                }
+                catch (err) {
+                    console.log('API CALL FAILED' + err)
+                    this.getRefreshToken(refreshToken, id1, id2, id3, id4);
                 }
             }
             else {
@@ -379,7 +368,8 @@ export default class HomeScreen extends React.Component {
             }
         }
         console.log('all salaries updated :)')
-        this.notifyPrematureEnd(restURL, restToken, refreshToken)
+        //this.notifyPrematureEnd(restURL, restToken, refreshToken)
+        this.setFilesPrivate(restURL, restToken, refreshToken)
     }
 
     // ******************* AUTOMATISME NOTIFIER RECRUTEMENT QUAND PLACEMENT PREMATURE END ******************** //
@@ -390,21 +380,15 @@ export default class HomeScreen extends React.Component {
         var id2 = null
         var id3 = 1
         var id4 = null
-        var mistake = null
 
         // var restToken = '3c59251a-62ae-46b6-be03-f58135a4db24'
         // var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
 
         console.log('...ENTERING NOTIFY RECRUITMENT OF PLACEMENT PREMATURE END + REASON')
 
-        var apiChangeReq = await axios.get(restURL + "query/PlacementChangeRequest?fields=placement,terminationReason,dateAdded&where=requestType='Premature End'&count=10&BhRestToken=" + restToken)
-            .catch(function (error) {
-                console.log('THERES AN ERRROOORRRRR')
-                console.log(error);
-                mistake = error
-            });
-
-        if (mistake != null) {
+        try { var apiChangeReq = await axios.get(restURL + "query/PlacementChangeRequest?fields=placement,terminationReason,dateAdded&where=requestType='Premature End'&count=10&BhRestToken=" + restToken) }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
             this.getRefreshToken(refreshToken, id1, id2, id3, id4);
         }
 
@@ -417,7 +401,7 @@ export default class HomeScreen extends React.Component {
             console.log('placements and premature end reason: ' + JSON.stringify([readable.data[i].placement.id, readable.data[i].terminationReason]))
 
         }
-        
+
         this.setFilesPrivate(restURL, restToken, refreshToken)
 
         // notify xyz@cof.com that placements placementIds have been terminated prematurely
@@ -431,85 +415,199 @@ export default class HomeScreen extends React.Component {
         var id2 = null
         var id3 = null
         var id4 = 1
-        var mistake = null
 
-        // var restToken = '5e6e16af-2700-486c-b771-6a62a21d7037'
+        //  var restToken = '21726248-0c1b-4592-a5d1-5c2475dac17c'
         // var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
 
         console.log('...ENTERING SET FILES TO PRIVATE')
 
         var files = []
 
-        // GET WITH POST ALL FILES OF TYPES TO BE PRIVATE
-        // var filesAPI = await axios.post("https://rest91.bullhornstaffing.com/rest-services/3e1yys/query/CandidateFileAttachment?fields=*&BhRestToken=86b2665e-14e6-48db-8188-52ad44779ca0&count=1", {
-        //     "where": "fileType IN ('Onboarding', 'HR - Immigration Document', 'HR - Check Specimen', 'HR - Work Permit', 'HR - ID Copy', 'HR - BackCheck', 'HR - Other Confidential Docs', 'Contractor Record', 'Payroll Record')",
-        // })
-        //     .then(function (response) {
-        //         console.log('POSTING SALARY IN CAND. ', response.data);
-        //         files = response.data;
-        //     })
-        //     .catch(function (error) {
-        //         console.log(error);
-        //     });
+        try {
+            await axios.post(restURL + "query/CandidateFileAttachment?fields=id,candidate,dateAdded,type,isPrivate&count=100&BhRestToken=" + restToken, {
+                "where": "type IN ('Onboarding', 'HR - Immigration Document', 'HR - Check Specimen', 'HR - Work Permit', 'HR - ID Copy', 'HR - BackCheck', 'HR - Other Confidential Docs', 'Contractor Record', 'Payroll Record')",
+            })
+                .then(function (response) {
+                    console.log('Types of files that need to be private: ', response.data);
+                    files = response.data
 
-        //change post data to accurate fileTypes .. see commented url above
-        await axios.post(restURL + "query/CandidateFileAttachment?fields=id,isPrivate,fileType,dateAdded&count=5&start=550&BhRestToken=" + restToken, {
-            "where": "fileType IN ('SAMPLE         ')",
-        })
-            .then(function (response) {
-                console.log('Types of files that need to be private: ', response.data);
-                files = response.data
+                    for (let i = 0; i < files.count; i++) {
 
-                for (let i = 0; i < files.count; i++) {
+                        var dateFile = new Date(files.data[i].dateAdded)
 
-                    console.log('File type and privacy status: ' + JSON.stringify([files.data[i].id, files.data[i].isPrivate]))
+                        //we will need a fixed date v
+                        if (dateFile < new Date()) {
 
-                    var dateFile = new Date(files.data[i].dateAdded)
+                            //  console.log(' This file is older than today')
 
-                    console.log('File added on (date) ' + dateFile)
-                    //we will need a fixed date v
-                    if (dateFile < new Date()) {
 
-                        console.log(' This file is older than today')
-                    }
+                            if (files.data[i].isPrivate === false) {
+                                console.log('Candidate ' + files.data[i].candidate.id + ' has a public file')
 
-                    if (files.data[i].isPrivate === false) {
-                        console.log('This should indicate FALSE: ' + files.data[i].isPrivate)
-
-                        axios.post(restURL + "entity/CandidateFileAttachment/" + files.data[i].id + "?fields=*&BhRestToken=" + restToken, {
-                            "isPrivate": true,
-                        })
-                            .then(function (response) {
-                                console.log('Private status is now: ', response.data);
-
-                            })
-                            .catch(function (error) {
-                                console.log('THERES AN ERRRROOORRRRR')
-                                console.log(error);
-                                mistake = error
-                            });
-                        if (mistake != null) {
-                            this.getRefreshToken(refreshToken, id1, id2, id3, id4)
+                                try {
+                                    axios.post(restURL + "entity/CandidateFileAttachment/" + files.data[i].id + "?fields=*&BhRestToken=" + restToken, {
+                                        "isPrivate": true,
+                                    })
+                                        .then(function (response) {
+                                            console.log('File updated to private: ', response.data);
+                                        });
+                                }
+                                catch (err) {
+                                    console.log('API CALL FAILED' + err)
+                                    this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+                                }
+                            }
+                            else {
+                                console.log(JSON.stringify(files.data[i].candidate.id) + ' this candidate file is already PRIVATE' + JSON.stringify(files.data[i].id))
+                            }
                         }
                     }
 
-                    else {
-                        console.log(JSON.stringify(files.data[i].id) + ' this file is already PRIVATE')
-                    }
-                }
-
-                console.log('UPDATE FINISHED THANKS :):):)')
-            })
-            .catch(function (error) {
-                console.log(error);
-                mistake = error
-            });
-
-        if (mistake != null) {
-            this.getRefreshToken(refreshToken, id1, id2, id3, id4)
+                    console.log('UPDATE FINISHED THANKS :):):)')
+                })
+        }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
+            this.getRefreshToken(refreshToken, id1, id2, id3, id4);
         }
 
-        //  this.updatePlacementExtension(restURL, restToken, refreshToken);
+        console.log('UPDATE FINISHED NOW >>> ' + new Date)
+
+            //  this.StartAgain(restURL, restToken, refreshToken);
+            ; this.updatePlacementExtension(restURL, restToken, refreshToken);
+    }
+
+    notifyOpenJob = async (restURL, restToken, refreshToken) => {
+
+        if (restURL != 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/') {
+            var restToken = '15b75bc3-18e7-45e4-8f15-541cb806289e'
+            var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
+        }
+
+        console.log('ENTERING NOTIFY RECRUITER OF OPENING JOB');
+
+        try { var getAssignedUser = await axios.get(restURL + "query/JobOrderEditHistoryFieldChange?fields=*&count=20&where=columnName='assignments'&BhRestToken=" + restToken) }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
+            this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+        }
+
+        var assigned_user = getAssignedUser.data
+
+        console.log('data from call:  ' + JSON.stringify(assigned_user))
+
+        for (let i = 0; i < assigned_user.count; i++) {
+
+            histId = assigned_user.data[i].editHistory.id
+
+            try { var getJobOrder = await axios.get(restURL + "entity/JobOrderEditHistory/" + histId + "?fields=*&BhRestToken=" + restToken) }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
+                this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+            }
+
+            if (getJobOrder.data.data.targetEntity !== null) {
+
+                var jobId = getJobOrder.data.data.targetEntity.id
+
+                try { var getJobId = await axios.get(restURL + "entity/JobOrder/" + jobId + "?fields=assignedUsers&BhRestToken=" + restToken) }
+                catch (err) {
+                    console.log('API CALL FAILED' + err)
+                    this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+                }
+
+                console.log('api call data for this job:  ' + jobId + '  ' + JSON.stringify(getJobId.data))
+                console.log('user assigned for this job:  ' + jobId + '  ' + JSON.stringify(getJobId.data.data.assignedUsers.data[0].id))
+
+                var userId = getJobId.data.data.assignedUsers.data[0].id
+
+                try { var getJobId = await axios.get(restURL + "entity/CorporateUser/" + userId + "?fields=email&BhRestToken=" + restToken) }
+                catch (err) {
+                    console.log('API CALL FAILED' + err)
+                    this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+                }
+                console.log('email of the recruiter:  ' + JSON.stringify(getJobId.data.data.email))
+
+                // code to notify by email to getJobId.data.data.email
+
+                // RNSmtpMailer.sendMail({
+                //     mailhost: "smtp.gmail.com",
+                //     port: "465",
+                //     ssl: true, // optional. if false, then TLS is enabled. Its true by default in android. In iOS TLS/SSL is determined automatically, and this field doesn't affect anything
+                //     username: "sarah_bechik@hotmail.com",
+                //     password: "...",
+                //     fromName: "Some Name", // optional
+                //     replyTo: "usernameEmail", // optional
+                //     recipients: "sarah.bechik@cofomo.com",
+                //     bcc: ["sarah.bechik@gmail.com"], // optional
+                //     subject: "HOLAAAA",
+                //     htmlBody: "<h1>header</h1><p>TESTING THE EMAIL SENDING</p>",
+                //      // required in android, these are renames of original files. in ios filenames will be same as specified in path. In a ios-only application, no need to define it
+                //   })
+                //     .then(success => console.log(success))
+                //     .catch(err => console.log(err));
+
+
+            }
+            else {
+                console.log('this target entity is null ' + JSON.stringify(getJobOrder.data.data.targetEntity))
+            }
+        }
+        console.log('UPDATE FINIE')
+    }
+
+    emailPlacementToCie = async (restURL, restToken, refreshToken) => {
+
+        if (restURL != 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/') {
+            var restToken = '29316d54-fe48-4fea-a73b-e10886a354e4'
+            var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
+        }
+
+        // var clients = await axios.get(restURL + "search/Placement?fields=clientCorporation&query=isDeleted:0&BhRestToken=" + restToken)
+        try {
+            var clients = await axios.get(restURL + "entity/Placement/1?fields=clientCorporation&query=isDeleted:0&BhRestToken=" + restToken)
+        }
+        catch (err) {
+            console.log('API CALL FAILED' + err)
+            this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+        }
+        console.log('clients callll' + JSON.stringify(clients.data))
+
+        for (let i = 0; i < clients.data.count; i++) {
+
+            var corpId = clients.data[i].clientCorporation.id
+
+            try { var clientEmails = await axios.get(restURL + "entity/ClientCorporation/" + corpId + "?fields=customText19F&query=isDeleted:0&count=30&BhRestToken=" + restToken) }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
+                this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+            }
+            try {
+                await axios.post(restURL + "entity/Placement/" + candId + "?BhRestToken=" + restToken, {
+                    "customText47": clientEmails.data.customText19,
+                })
+                    .then(function (response) {
+                        console.log('Updating Placement cie email ', response.data);
+                    })
+            }
+            catch (err) {
+                console.log('API CALL FAILED' + err)
+                this.getRefreshToken(refreshToken, id1, id2, id3, id4);
+            }
+        }
+
+    }
+
+
+
+
+
+
+
+
+
+    StartAgain(restURL, restToken, refreshToken) {
+        this.setFilesPrivate(restURL, restToken, refreshToken);
     }
 
     render() {
@@ -531,11 +629,18 @@ export default class HomeScreen extends React.Component {
                 <View style={{ marginBottom: -25 }}>
                     <Text style={{ fontSize: 22, color: 'gray', alignSelf: 'flex-end', fontWeight: 'bold' }}>WELCOME TO THE HOME PAGE, A FEED CAN APPEAR HERE</Text>
                 </View>
-                <View style={{ height: 50, marginBottom: 10, marginTop: 20, alignSelf: 'center', width: '60%' }}>
-                    <TouchableOpacity onPress={this.updatePlacementExtension}>
-                        <Text style={{ fontSize: 25, color: 'white', alignSelf: 'center', marginTop: 2 }}>GET CODE</Text>
+
+                <View style={{ height: 50, marginBottom: 10, marginTop: 20, alignSelf: 'flex-start', width: '50%' }}>
+                    <TouchableOpacity onPress={this.notifyOpenJob}>
+                        <Text style={{ fontSize: 25, color: 'white', alignSelf: 'center', marginTop: 2 }}>START AUTOMATION</Text>
                     </TouchableOpacity>
                 </View>
+                <View style={{ height: 50, marginBottom: 10, marginTop: 20, alignSelf: 'flex-end', width: '50%' }}>
+                    <TouchableOpacity onPress={this.emailPlacementToCie}>
+                        <Text style={{ fontSize: 25, color: 'white', alignSelf: 'center', marginTop: 2 }}>DO AGAIN</Text>
+                    </TouchableOpacity>
+                </View>
+
             </View>
         );
     }
