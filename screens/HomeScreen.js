@@ -559,13 +559,13 @@ export default class HomeScreen extends React.Component {
     emailPlacementToCie = async (restURL, restToken, refreshToken) => {
 
         if (restURL != 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/') {
-            var restToken = '29316d54-fe48-4fea-a73b-e10886a354e4'
+            var restToken = '4b3d9e3b-05f0-4e93-bda5-59f0faff5ee4'
             var restURL = 'https://rest91.bullhornstaffing.com/rest-services/3e1yys/'
         }
 
         // var clients = await axios.get(restURL + "search/Placement?fields=clientCorporation&query=isDeleted:0&BhRestToken=" + restToken)
         try {
-            var clients = await axios.get(restURL + "entity/Placement/1?fields=clientCorporation&query=isDeleted:0&BhRestToken=" + restToken)
+            var clients = await axios.get(restURL + "entity/Placement/8327?fields=id,clientCorporation&query=isDeleted:0&BhRestToken=" + restToken)
         }
         catch (err) {
             console.log('API CALL FAILED' + err)
@@ -573,18 +573,21 @@ export default class HomeScreen extends React.Component {
         }
         console.log('clients callll' + JSON.stringify(clients.data))
 
-        for (let i = 0; i < clients.data.count; i++) {
+      //  for (let i = 0; i < clients.data.count; i++) {
 
-            var corpId = clients.data[i].clientCorporation.id
+            var corpId = clients.data.data.clientCorporation.id
+            var plaId = clients.data.data.id
 
-            try { var clientEmails = await axios.get(restURL + "entity/ClientCorporation/" + corpId + "?fields=customText19F&query=isDeleted:0&count=30&BhRestToken=" + restToken) }
+            console.log('corpid: ' + plaId)
+
+            try { var clientEmails = await axios.get(restURL + "entity/ClientCorporation/" + corpId + "?fields=customText19&query=isDeleted:0&count=30&BhRestToken=" + restToken) }
             catch (err) {
                 console.log('API CALL FAILED' + err)
                 this.getRefreshToken(refreshToken, id1, id2, id3, id4);
             }
             try {
-                await axios.post(restURL + "entity/Placement/" + candId + "?BhRestToken=" + restToken, {
-                    "customText47": clientEmails.data.customText19,
+                await axios.post(restURL + "entity/Placement/" + plaId + "?BhRestToken=" + restToken, {
+                    "customText47": clientEmails.data.data.customText19,
                 })
                     .then(function (response) {
                         console.log('Updating Placement cie email ', response.data);
@@ -594,7 +597,7 @@ export default class HomeScreen extends React.Component {
                 console.log('API CALL FAILED' + err)
                 this.getRefreshToken(refreshToken, id1, id2, id3, id4);
             }
-        }
+      //  }
 
     }
 
